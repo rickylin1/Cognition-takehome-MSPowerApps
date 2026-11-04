@@ -1,6 +1,6 @@
 """Reset the local database and load fake demo data: core seed first, then each tool's seed."""
 
-from core import audit  # noqa: F401  (register models)
+from core import approvals, audit  # noqa: F401  (register models)
 from core import seed as core_seed
 from core.db import Base, SessionLocal, engine
 
