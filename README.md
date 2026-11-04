@@ -28,13 +28,8 @@ All seeded users share the demo password **`demo-password`**.
 | `alice`, `carol` | `kyc_analyst` | View and decide KYC cases (`/kyc`) |
 | `bob` | `kyc_senior_analyst` | Also give the second review on watchlist cases |
 | `frank` | `kyc_analyst` + `auditor` | KYC analyst who can also view the audit log (two roles) |
-
-The refunds PR will add its own roles to `config/roles.py` and its users to the seed:
-
-| Tool PR | User | Roles | Can do |
-|---------|------|-------|--------|
-| Refunds (`specs/refunds.md`) | `dana` | `support_agent` | View transactions, request refunds |
-| Refunds | `erin` | `support_lead` | Also approve refunds |
+| `dana` | `support_agent` | View transactions and request refunds (`/refunds`) |
+| `erin` | `support_lead` | Also approve refunds above the $500 threshold |
 
 ## Tests
 
@@ -58,6 +53,8 @@ pytest apps/<tool> # one tool
 - `apps/<tool>/`: internal tools built on `core/`.
 - `apps/kyc/`: KYC review queue (`specs/kyc.md`). Cases with a watchlist hit need a second
   review from a different `kyc_senior_analyst` via `core/approvals`.
+- `apps/refunds/`: refunds dashboard (`specs/refunds.md`). Refunds above the threshold in
+  `config/refunds.py` ($500) need approval from a different `support_lead` via `core/approvals`.
 
 ## Production gaps (out of scope for this PoC)
 
