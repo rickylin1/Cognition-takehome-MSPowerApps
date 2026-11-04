@@ -1,8 +1,9 @@
 """Reset the local database and load fake demo data: core seed first, then each tool's seed."""
 
+from core import seed as core_seed
 from core.db import Base, SessionLocal, engine
 
-SEEDS = []
+SEEDS = [core_seed.run]
 
 
 def main() -> None:
@@ -12,7 +13,7 @@ def main() -> None:
         for run in SEEDS:
             run(db)
         db.commit()
-    print("Seeded database.")
+    print(f"Seeded database. Demo password for all users: {core_seed.DEMO_PASSWORD}")
 
 
 if __name__ == "__main__":

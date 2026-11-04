@@ -7,7 +7,9 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from core.auth import NotAuthenticated
 from core.db import init_db
+from core.permissions import PermissionDenied
 from core.routes import router as core_router
+from core.routes import templates
 
 
 @asynccontextmanager
@@ -28,6 +30,12 @@ app.add_middleware(
 @app.exception_handler(NotAuthenticated)
 def redirect_to_login(request: Request, exc: NotAuthenticated):
     return RedirectResponse("/login", status_code=303)
+
+
+@app.exception_handler(PermissionDenied)
+def forbidden(request: Request, exc: PermissionDenied):
+    user = getattr(request.state, "user", None)
+    return templates.TemplateResponse(request, "forbidden.html", {"user": user}, status_code=403)
 
 
 app.include_router(core_router)
