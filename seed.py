@@ -1,10 +1,11 @@
 """Reset the local database and load fake demo data: core seed first, then each tool's seed."""
 
+from apps.kyc import seed as kyc_seed
 from core import approvals, audit  # noqa: F401  (register models)
 from core import seed as core_seed
 from core.db import Base, SessionLocal, engine
 
-SEEDS = [core_seed.run]
+SEEDS = [core_seed.run, kyc_seed.run]
 
 
 def main() -> None:

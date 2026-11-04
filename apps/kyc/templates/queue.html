@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}KYC review queue{% endblock %}
+{% macro checks(c) -%}
+Document {{ "pass" if c.document_check_passed else "FAIL" }},
+identity {{ "pass" if c.identity_match_passed else "FAIL" }},
+{{ "WATCHLIST HIT" if c.watchlist_hit else "no watchlist hit" }}
+{%- endmacro %}
+{% block content %}
+<h1>KYC review queue</h1>
+{% if awaiting is not none %}
+<h2>Awaiting second review</h2>
+<table>
+  <thead><tr><th>Case</th><th>Applicant</th><th>Checks</th><th>Proposed decision</th></tr></thead>
+  <tbody>
+    {% for c in awaiting %}
+    <tr>
+      <td><a href="/kyc/cases/{{ c.id }}">#{{ c.id }}</a></td>
+      <td>{{ c.applicant_name }}</td>
+      <td>{{ checks(c) }}</td>
+      <td>{{ c.proposed_decision }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4">Nothing awaiting second review.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+<h2>All cases</h2>
+{% endif %}
+<table>
+  <thead><tr><th>Case</th><th>Applicant</th><th>Checks</th><th>Status</th></tr></thead>
+  <tbody>
+    {% for c in cases %}
+    <tr>
+      <td><a href="/kyc/cases/{{ c.id }}">#{{ c.id }}</a></td>
+      <td>{{ c.applicant_name }}</td>
+      <td>{{ checks(c) }}</td>
+      <td>{{ c.status }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
