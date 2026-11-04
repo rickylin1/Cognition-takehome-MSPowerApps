@@ -5,6 +5,51 @@ controls auditors care about (authentication, permissions, an append-only audit 
 four-eyes approvals), so each tool in `apps/<tool>/` only implements its own business logic.
 See `AGENTS.md` for project rules and `specs/` for task specs.
 
+## Background
+
+A Series C fintech (~60 engineers) runs several internal operations tools in Microsoft
+Power Apps today: a KYC review queue, a refunds dashboard, and a feature-flag panel. It
+plans to build 10+ more.
+
+The approach:
+
+1. **Build the controls once, in `core/`** (`specs/platform.md`): login, deny-by-default
+   permissions, an append-only audit log, and four-eyes approvals.
+2. **Build each tool from a short spec** (`specs/<tool>.md`) that describes only the
+   business rules: data, permissions, roles, screens, statuses, and tests.
+3. **Measure the result**: each tool should need no new auth, permission, or audit code of
+   its own, and ideally no changes to `core/` at all.
+
+Two Power Apps tools have been rebuilt this way so far: the [KYC review queue](#kyc-review-queue-appskyc)
+and the [refunds dashboard](#refunds-dashboard-appsrefunds). Both were built on the
+unchanged `core/` platform. The refunds dashboard was the second tool and was built by
+following the reusable procedure in `.agents/skills/new-internal-tool/SKILL.md`, which was
+written from the KYC build so later tools follow the same conventions.
+
+The third Power Apps tool, the feature-flag panel, was deliberately not rebuilt:
+
+- **Two tools were enough to prove the point.** The second tool (refunds) reused `core/`
+  without any changes, so a third would add little new evidence.
+- **It tells auditors less.** The feature-flag panel doesn't touch customer PII or move
+  money, so it exercises the controls less than KYC and refunds do.
+- **This is a time-boxed PoC.** The panel is deferred, and it is the natural next tool to
+  build from a spec.
+
+## How the platform works
+
+Every tool gets these controls from `core/` instead of writing its own:
+
+| Control | How a tool uses it | What it guarantees |
+|---|---|---|
+| Authentication | `get_current_user` (`core/auth.py`) | Every route except `/login` requires a session; logged-out users are redirected to `/login`. |
+| Permissions | `Depends(require_permission("<tool>:<resource>.<action>"))` on every route | Deny by default. Code checks permissions, never role names; roles map to permissions only in `config/roles.py`. A user's effective permissions are the union of their roles. Missing permission returns 403. |
+| Audit log | `audit.log(db, actor, action, entity_type, entity_id, before, after, reason)` | Every data change records who, what, before/after state, and why. Entries are append-only and viewable at `/audit` with `core:audit.view`. Logins (including failed ones) are also audited. |
+| Four-eyes approvals | `approvals.request(...)` then `approvals.decide(...)` | The approver must hold the required permission and can never be the requester. |
+| Home page | `register_tool(name, url, permission)` | Users only see tiles for tools they can open. |
+
+The audit entry, the approval record, and the tool's own data change are written in the
+same database transaction, so a change is never saved without its audit trail.
+
 ## Setup and run
 
 Requires Python 3.11+.
@@ -55,6 +100,47 @@ pytest apps/<tool> # one tool
   review from a different `kyc_senior_analyst` via `core/approvals`.
 - `apps/refunds/`: refunds dashboard (`specs/refunds.md`). Refunds above the threshold in
   `config/refunds.py` ($500) need approval from a different `support_lead` via `core/approvals`.
+
+## The internal tools
+
+Roles and seed users for both tools are in [Demo users](#demo-users).
+
+### KYC review queue (`apps/kyc`)
+
+Compliance analysts review applicant KYC cases (10 fake cases with mock document, identity,
+and watchlist check results) at `/kyc`. Spec: `specs/kyc.md`.
+
+- A case with no watchlist hit is approved or rejected directly by one analyst.
+- A case with a watchlist hit needs four-eyes review. The analyst's decision becomes a
+  proposal (`PENDING_SECOND_REVIEW`) via `core/approvals`, and a different
+  `kyc_senior_analyst` makes the final decision.
+- Every decision requires a reason and is audited with before/after status.
+
+**Try it:** log in as `alice` and decide a watchlist case. Log in as `bob` and give the
+second review. Log in as `audrey` and check `/audit`.
+
+### Refunds dashboard (`apps/refunds`)
+
+Support staff refund customer transactions (10 fake transactions) at `/refunds`. Payments
+are mocked: issuing a refund only records it. Spec: `specs/refunds.md`.
+
+- A refund can't exceed the transaction amount minus refunds already issued.
+- Refunds up to $500 (`APPROVAL_THRESHOLD` in `config/refunds.py`) are issued immediately.
+- Larger refunds wait in `/refunds/approvals` until a different `support_lead` approves or
+  rejects them via `core/approvals`.
+- Every request, approval, rejection, and issuance is audited.
+
+**Try it:** log in as `dana` and request a $700 refund. Log in as `erin` and approve it.
+Log in as `audrey` and check `/audit`.
+
+Both tools use the same `core/approvals` for different triggers (a watchlist hit vs. a
+dollar threshold), and neither needed changes to `core/` or any custom auth, permission,
+or audit code.
+
+## Adding another tool
+
+Write `specs/<tool>.md` (see the existing specs for the format) and build it by following
+`.agents/skills/new-internal-tool/SKILL.md`.
 
 ## Production gaps (out of scope for this PoC)
 
