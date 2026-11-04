@@ -12,24 +12,28 @@ Reference implementation: `apps/kyc/`. Copy its structure, not its business rule
 
 ## Procedure
 1. Read `AGENTS.md`, `specs/platform.md`, the tool's spec, and skim `core/` and `apps/kyc/`; reply with a short plan, then proceed.
-2. Create a branch: `git checkout -b devin/$(date +%s)-<tool>`; set up with `source .venv/bin/activate` (or the AGENTS.md setup command).
+2. Create a new branch. Run the full setup from `AGENTS.md` (create the venv if missing, install requirements).
 3. Create `apps/<tool>/` with `__init__.py`, `permissions.py`, `models.py`, `routes.py`, `seed.py`, `templates/`, `tests/__init__.py`.
 4. Declare every permission as a constant in `apps/<tool>/permissions.py`, named `<tool>:<resource>.<action>`.
 5. Add the spec's roles to `config/roles.py`, each scoped to this tool only (no cross-app roles).
 6. Define SQLAlchemy models on `core.db.Base` in `models.py`, with table names prefixed `<tool>_`.
 7. Put every state change in a `models.py` function taking `(db, actor, entity, ...)` that validates, mutates, calls `audit.log(...)`, and does not commit.
-8. Audit every change with before/after state and reason; also audit reads of sensitive data (e.g. viewing personal data), action `<tool>.<entity>.viewed`.
+8. Audit every change with before/after state and reason. Also audit views of sensitive personal data — government IDs, SSNs, dates of birth, full card or bank account numbers — with action `<tool>.<entity>.viewed`. Names, amounts, and statuses alone are not sensitive.
 9. Route four-eyes actions through `approvals.request(...)` with the approver permission, and `approvals.decide(...)` before applying the outcome to your entity.
-10. Protect every route in `routes.py` with `Depends(require_permission(<PERMISSION>))`, including GET pages; use `APIRouter(prefix="/<tool>")`.
-11. In routes, call the model function, `db.commit()` on success (303 redirect), and on the app's error `db.rollback()` and re-render with status 400.
-12. Register the tool on the home page in `routes.py`: `register_tool("<Name>", "/<tool>", <VIEW_PERMISSION>)`.
-13. Mount the router in `main.py` (`app.include_router(...)`).
-14. Write `apps/<tool>/seed.py: run(db)` creating users via `core.auth.create_user(db, name, DEMO_PASSWORD, roles)` and fake records; append it to `SEEDS` in root `seed.py`.
-15. Add the new demo users and roles to the README demo-users table.
-16. Write tests in `apps/<tool>/tests/` covering every rule listed in the spec, using root `conftest.py` fixtures; test only this tool's rules.
-17. Run `pytest core`, `pytest apps/<tool>`, then `pytest`; fix until all pass.
-18. Run `python seed.py && uvicorn main:app --reload`, log in as the seeded users, click through the spec's main flow, check `/audit` as `audrey`, and take screenshots.
-19. Open a PR with sections Summary, Changes to `core/` (or "None"), Deliberately left out, How to verify (commands, click-through steps, screenshots).
+10. If the spec needs something `core/` doesn't provide:
+    - Controls (auth, permissions, audit, approvals, sensitive-data handling): add a generic version to `core/` with tests in `core/tests/`. Never implement a control inside the tool.
+    - Anything else: implement it inside the tool. If similar logic already exists in another app, do NOT import it or move it to `core/`; list it in the PR under 'Candidates for `core/`', naming where it's duplicated.
+    - Never refactor other apps as part of building this tool.
+11. Protect every route in `routes.py` with `Depends(require_permission(<PERMISSION>))`, including GET pages; use `APIRouter(prefix="/<tool>")`.
+12. In routes, call the model function, `db.commit()` on success (303 redirect), and on the app's error `db.rollback()` and re-render with status 400.
+13. Register the tool on the home page in `routes.py`: `register_tool("<Name>", "/<tool>", <VIEW_PERMISSION>)`.
+14. Mount the router in `main.py` (`app.include_router(...)`).
+15. Write `apps/<tool>/seed.py: run(db)` creating users via `core.auth.create_user(db, name, DEMO_PASSWORD, roles)` and fake records; append it to `SEEDS` in root `seed.py`.
+16. Add the new demo users and roles to the README demo-users table.
+17. Write tests in `apps/<tool>/tests/` covering every rule listed in the spec, using root `conftest.py` fixtures; test only this tool's rules.
+18. Run `pytest core`, `pytest apps/<tool>`, then `pytest`; fix until all pass.
+19. Run `python seed.py && uvicorn main:app --reload`, log in as the seeded users, click through the spec's main flow, check `/audit` as `audrey`, and take screenshots.
+20. Open a PR with sections Summary, Changes to `core/` (or "None"), Candidates for `core/` (or "None"), Deliberately left out, How to verify (commands, click-through steps, screenshots).
 
 ## Specifications
 - `pytest core` and `pytest apps/<tool>` pass (and `pytest` overall).

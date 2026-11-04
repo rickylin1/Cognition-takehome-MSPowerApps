@@ -66,8 +66,9 @@ controls, not for completeness, polish, or scale.
 - PR description must include:
   1. **Summary**: what was built and how it is structured.
   2. **Changes to `core/`**: listed separately, or "None".
-  3. **Deliberately left out**: anything skipped or deferred.
-  4. **How to verify**: commands and the click-through steps, with screenshots.
+  3. **Candidates for `core/`**: logic duplicated across apps, naming where, or "None".
+  4. **Deliberately left out**: anything skipped or deferred.
+  5. **How to verify**: commands and the click-through steps, with screenshots.
 
 ## When unsure
 
