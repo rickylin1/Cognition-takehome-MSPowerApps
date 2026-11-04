@@ -124,3 +124,28 @@ def test_decision_requires_reason(db, create_user):
     with pytest.raises(KycError):
         decide(db, alice, case, APPROVED, "   ")
     assert case.status == PENDING
+
+
+def test_watchlist_flow_through_routes(client, db, create_user):
+    create_user("alice", ["kyc_analyst"])
+    create_user("bob", ["kyc_senior_analyst"])
+    case = make_case(db, watchlist_hit=True)
+    url = f"/kyc/cases/{case.id}/decide"
+
+    def as_user(username):
+        client.cookies.clear()
+        r = client.post("/login", data={"username": username, "password": "test-password"})
+        assert r.status_code == 303
+
+    as_user("alice")
+    assert client.post(url, data={"decision": "APPROVED", "reason": " "}).status_code == 400
+    assert client.post(url, data={"decision": "APPROVED", "reason": "Name-only match"}).status_code == 303
+    assert "Awaiting second review" not in client.get("/kyc").text
+    assert client.post(url, data={"decision": "APPROVED", "reason": "Self review"}).status_code == 403
+
+    as_user("bob")
+    assert "Awaiting second review" in client.get("/kyc").text
+    assert client.post(url, data={"decision": "APPROVED", "reason": "False positive"}).status_code == 303
+    db.expire_all()
+    assert db.get(KycCase, case.id).status == APPROVED
+    assert client.post(url, data={"decision": "REJECTED", "reason": "Again"}).status_code == 400

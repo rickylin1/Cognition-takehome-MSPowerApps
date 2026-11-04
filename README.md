@@ -25,15 +25,14 @@ All seeded users share the demo password **`demo-password`**.
 | User     | Roles     | Can do                  |
 |----------|-----------|-------------------------|
 | `audrey` | `auditor` | View the audit log (`/audit`) |
+| `alice`, `carol` | `kyc_analyst` | View and decide KYC cases (`/kyc`) |
+| `bob` | `kyc_senior_analyst` | Also give the second review on watchlist cases |
+| `frank` | `kyc_analyst` + `auditor` | KYC analyst who can also view the audit log (two roles) |
 
-The platform seeds only `audrey`, as `specs/platform.md` asks; core has no other roles yet.
-Each tool's PR adds its own roles to `config/roles.py` and its users to the seed:
+The refunds PR will add its own roles to `config/roles.py` and its users to the seed:
 
 | Tool PR | User | Roles | Can do |
 |---------|------|-------|--------|
-| KYC (`specs/kyc.md`) | `alice`, `carol` | `kyc_analyst` | View and decide KYC cases |
-| KYC | `bob` | `kyc_senior_analyst` | Also give the second review on four-eyes cases |
-| KYC | `frank` | `kyc_analyst` + `auditor` | KYC analyst who can also view the audit log (two roles) |
 | Refunds (`specs/refunds.md`) | `dana` | `support_agent` | View transactions, request refunds |
 | Refunds | `erin` | `support_lead` | Also approve refunds |
 
@@ -57,6 +56,8 @@ pytest apps/<tool> # one tool
 - `core/registry.py`: `register_tool(name, url, permission)` for the home page.
 - `core/routes.py`, `core/templates/`: `/login`, `/logout`, `/`, `/audit`.
 - `apps/<tool>/`: internal tools built on `core/`.
+- `apps/kyc/`: KYC review queue (`specs/kyc.md`). Cases with a watchlist hit need a second
+  review from a different `kyc_senior_analyst` via `core/approvals`.
 
 ## Production gaps (out of scope for this PoC)
 

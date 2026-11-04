@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}KYC case #{{ case.id }}{% endblock %}
+{% block content %}
+<p><a href="/kyc">&larr; Back to queue</a></p>
+<h1>Case #{{ case.id }}: {{ case.applicant_name }}</h1>
+<p>Status: <strong>{{ case.status }}</strong>
+{% if case.proposed_decision %}(proposed decision: {{ case.proposed_decision }}){% endif %}</p>
+
+<h2>Applicant</h2>
+<table>
+  <tr><th>Name</th><td>{{ case.applicant_name }}</td></tr>
+  <tr><th>Date of birth</th><td>{{ case.date_of_birth }}</td></tr>
+  <tr><th>SSN</th><td>{{ case.ssn }}</td></tr>
+  <tr><th>Address</th><td>{{ case.address }}</td></tr>
+  <tr><th>ID document</th><td>{{ case.id_document_type }}</td></tr>
+  <tr><th>Created</th><td>{{ case.created_at.strftime("%Y-%m-%d %H:%M") }} UTC</td></tr>
+  <tr><th>Updated</th><td>{{ case.updated_at.strftime("%Y-%m-%d %H:%M") }} UTC</td></tr>
+</table>
+
+<h2>Check results</h2>
+<table>
+  <tr><th>Document check</th><td>{{ "Pass" if case.document_check_passed else "Fail" }}</td></tr>
+  <tr><th>Identity match</th><td>{{ "Pass" if case.identity_match_passed else "Fail" }}</td></tr>
+  <tr><th>Watchlist hit</th><td>{{ "Yes" if case.watchlist_hit else "No" }}</td></tr>
+</table>
+
+<h2>Decision</h2>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+{% if case.status == "PENDING" or (case.status == "PENDING_SECOND_REVIEW" and can_second_review and approval.requested_by_id != user.id) %}
+{% if case.status == "PENDING_SECOND_REVIEW" %}
+<p>Second review: an analyst proposed <strong>{{ case.proposed_decision }}</strong>. Your decision is final.</p>
+{% elif case.watchlist_hit %}
+<p>This case has a watchlist hit, so your decision goes to a senior analyst for second review.</p>
+{% endif %}
+<form method="post" action="/kyc/cases/{{ case.id }}/decide">
+  <label>Reason (required)<br><textarea name="reason" rows="3" required></textarea></label>
+  <button type="submit" name="decision" value="APPROVED">Approve</button>
+  <button type="submit" name="decision" value="REJECTED">Reject</button>
+</form>
+{% elif case.status == "PENDING_SECOND_REVIEW" %}
+<p>Awaiting second review by a different user with <code>kyc:case.second_review</code>.</p>
+{% else %}
+<p>This case is closed.</p>
+{% endif %}
+{% endblock %}
