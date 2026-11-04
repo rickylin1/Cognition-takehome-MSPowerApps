@@ -5,6 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
 
+from core import audit  # noqa: F401  (register models)
 from core.auth import NotAuthenticated
 from core.db import init_db
 from core.permissions import PermissionDenied

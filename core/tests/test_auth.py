@@ -1,8 +1,11 @@
+from sqlalchemy import select
+
 from conftest import TEST_PASSWORD
+from core.audit import AuditEntry
 
 
 def test_wrong_password_fails_and_correct_password_sets_session(client, create_user):
-    create_user("tester")
+    create_user("tester", ["auditor"])
 
     bad = client.post("/login", data={"username": "tester", "password": "wrong"})
     assert bad.status_code == 401
@@ -18,10 +21,20 @@ def test_wrong_password_fails_and_correct_password_sets_session(client, create_u
     assert "tester" in home.text
 
 
+def test_logins_are_audited(client, create_user, db):
+    create_user("tester")
+    client.post("/login", data={"username": "tester", "password": "wrong"})
+    client.post("/login", data={"username": "tester", "password": TEST_PASSWORD})
+
+    actions = db.scalars(select(AuditEntry.action).order_by(AuditEntry.id)).all()
+    assert actions == ["auth.login_failed", "auth.login_succeeded"]
+
+
 def test_unauthenticated_request_redirects_to_login(client):
-    response = client.get("/")
-    assert response.status_code == 303
-    assert response.headers["location"] == "/login"
+    for path in ("/", "/audit"):
+        response = client.get(path)
+        assert response.status_code == 303
+        assert response.headers["location"] == "/login"
 
 
 def test_logout_clears_session(client, login_as):

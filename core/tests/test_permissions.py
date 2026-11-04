@@ -35,6 +35,7 @@ def test_roles(monkeypatch):
 def test_user_without_permission_gets_403(client, login_as):
     login_as("tester", ["gadget_viewer"])
     assert client.get("/_test/widgets").status_code == 403
+    assert client.get("/audit").status_code == 403
 
 
 def test_user_with_no_roles_is_denied(client, login_as):
@@ -47,3 +48,4 @@ def test_two_roles_grant_union_of_permissions(client, login_as):
     login_as("tester", ["widget_viewer", "gadget_viewer"])
     assert client.get("/_test/widgets").status_code == 200
     assert client.get("/_test/gadgets").status_code == 200
+    assert client.get("/audit").status_code == 403

@@ -5,12 +5,13 @@ from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+from core import audit
 from core.auth import User, authenticate, get_current_user
 from core.db import get_db
+from core.permissions import AUDIT_VIEW, require_permission
 
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 router = APIRouter()
-
 
 @router.get("/login")
 def login_form(request: Request):
@@ -26,11 +27,15 @@ def login(
 ):
     user = authenticate(db, username, password)
     if user is None:
+        audit.log(db, None, "auth.login_failed", "user", username)
+        db.commit()
         return templates.TemplateResponse(
             request, "login.html", {"error": "Invalid username or password."}, status_code=401
         )
     request.session.clear()
     request.session["user_id"] = user.id
+    audit.log(db, user, "auth.login_succeeded", "user", user.id)
+    db.commit()
     return RedirectResponse("/", status_code=303)
 
 
@@ -43,3 +48,14 @@ def logout(request: Request, user: User = Depends(get_current_user)):
 @router.get("/")
 def home(request: Request, user: User = Depends(get_current_user)):
     return templates.TemplateResponse(request, "home.html", {"user": user})
+
+
+@router.get("/audit")
+def audit_page(
+    request: Request,
+    user: User = Depends(require_permission(AUDIT_VIEW)),
+    db: Session = Depends(get_db),
+):
+    return templates.TemplateResponse(
+        request, "audit.html", {"user": user, "entries": audit.list_entries(db)}
+    )

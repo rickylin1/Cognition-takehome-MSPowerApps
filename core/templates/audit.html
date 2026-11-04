@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Audit log{% endblock %}
+{% block content %}
+<h1>Audit log</h1>
+<table>
+  <thead>
+    <tr><th>ID</th><th>Timestamp (UTC)</th><th>Actor</th><th>Action</th><th>Entity</th><th>Before</th><th>After</th><th>Reason</th></tr>
+  </thead>
+  <tbody>
+    {% for e in entries %}
+    <tr>
+      <td>{{ e.id }}</td>
+      <td>{{ e.timestamp.strftime("%Y-%m-%d %H:%M:%S") }}</td>
+      <td>{{ e.actor.username if e.actor else "—" }}</td>
+      <td>{{ e.action }}</td>
+      <td>{{ e.entity_type }} #{{ e.entity_id }}</td>
+      <td>{% if e.before is not none %}<pre>{{ e.before | tojson(indent=2) }}</pre>{% endif %}</td>
+      <td>{% if e.after is not none %}<pre>{{ e.after | tojson(indent=2) }}</pre>{% endif %}</td>
+      <td>{{ e.reason or "" }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8">No entries.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
