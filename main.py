@@ -1,10 +1,13 @@
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
 
+from core.auth import NotAuthenticated
 from core.db import init_db
+from core.routes import router as core_router
 
 
 @asynccontextmanager
@@ -21,4 +24,11 @@ app.add_middleware(
     SessionMiddleware, secret_key=os.environ.get("SESSION_SECRET", "dev-only-insecure-secret")
 )
 
+
+@app.exception_handler(NotAuthenticated)
+def redirect_to_login(request: Request, exc: NotAuthenticated):
+    return RedirectResponse("/login", status_code=303)
+
+
+app.include_router(core_router)
 # Each tool's routes are mounted here, e.g. app.include_router(kyc_router)
