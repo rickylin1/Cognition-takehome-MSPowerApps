@@ -103,131 +103,44 @@ pytest apps/<tool> # one tool
 
 ## The internal tools
 
+Roles and seed users for both tools are in [Demo users](#demo-users).
+
 ### KYC review queue (`apps/kyc`)
 
-**What it replaces.** The Power Apps screen compliance analysts use to work Know Your
-Customer cases. This is only the human review layer: intake, identity-vendor checks, and
-automated decisioning happen elsewhere and are represented by seed data. Spec:
-`specs/kyc.md`.
+Compliance analysts review applicant KYC cases (10 fake cases with mock document, identity,
+and watchlist check results) at `/kyc`. Spec: `specs/kyc.md`.
 
-**Data.** 10 fake applicant cases, each with name, date of birth, SSN (fake, never-issued
-9xx range), address, ID document type, mock check results (document check, identity
-match, watchlist hit), status, and timestamps. At least 3 cases have a watchlist hit.
+- A case with no watchlist hit is approved or rejected directly by one analyst.
+- A case with a watchlist hit needs four-eyes review. The analyst's decision becomes a
+  proposal (`PENDING_SECOND_REVIEW`) via `core/approvals`, and a different
+  `kyc_senior_analyst` makes the final decision.
+- Every decision requires a reason and is audited with before/after status.
 
-**Who uses it.**
-
-| Role | Permissions | Seed users |
-|---|---|---|
-| `kyc_analyst` | `kyc:case.view`, `kyc:case.decide` | `alice`, `carol`, `frank` (also `auditor`) |
-| `kyc_senior_analyst` | adds `kyc:case.second_review` | `bob` |
-
-**Screens.**
-
-- `/kyc`: the queue, showing each case's applicant, check summary, and status. Senior
-  analysts also see an "Awaiting second review" section.
-- `/kyc/cases/{id}`: applicant data, check results, and approve/reject buttons with a
-  required reason.
-
-**Workflow.**
-
-```
-PENDING ──(no watchlist hit: analyst decides)──────────────► APPROVED | REJECTED
-PENDING ──(watchlist hit: analyst proposes a decision)─────► PENDING_SECOND_REVIEW
-PENDING_SECOND_REVIEW ──(different senior analyst decides)─► APPROVED | REJECTED
-```
-
-- A clean case is decided directly by one analyst.
-- A watchlist-hit case is the four-eyes case: the analyst's decision becomes a proposal,
-  stored as a `core/approvals` request, and the case waits for a second review. A different
-  user with `kyc:case.second_review` makes the final decision. The approval is marked
-  approved if they agree with the proposal and rejected if they overrule it.
-- The analyst who submitted a case can never give its second review.
-- Every decision requires a reason. Any other status transition raises an error.
-
-**Audit trail.** `kyc.case.decided`, `kyc.case.submitted_for_second_review`, and
-`kyc.case.second_review_decided`, each with before/after status and the reason.
-
-**Out of scope.** Escalation, case assignment, filters, PII masking, intake, vendor
-integrations, rules engine, customer information requests, notifications, reporting.
-
-**Try it.** Log in as `alice`, open a watchlist case, and submit a decision. Log in as
-`bob`, open it from "Awaiting second review", and decide it. Log in as `audrey` and check
-`/audit`.
+**Try it:** log in as `alice` and decide a watchlist case. Log in as `bob` and give the
+second review. Log in as `audrey` and check `/audit`.
 
 ### Refunds dashboard (`apps/refunds`)
 
-**What it replaces.** The Power Apps screen support staff use to refund customer
-transactions. Payment processing is mocked: "issuing" a refund only records it. Spec:
-`specs/refunds.md`.
+Support staff refund customer transactions (10 fake transactions) at `/refunds`. Payments
+are mocked: issuing a refund only records it. Spec: `specs/refunds.md`.
 
-**Data.** 10 fake transactions, each with customer name, amount, date, merchant, and status
-(`SETTLED`, `PARTIALLY_REFUNDED`, or `REFUNDED`). Amounts are stored in integer cents.
+- A refund can't exceed the transaction amount minus refunds already issued.
+- Refunds up to $500 (`APPROVAL_THRESHOLD` in `config/refunds.py`) are issued immediately.
+- Larger refunds wait in `/refunds/approvals` until a different `support_lead` approves or
+  rejects them via `core/approvals`.
+- Every request, approval, rejection, and issuance is audited.
 
-**Who uses it.**
+**Try it:** log in as `dana` and request a $700 refund. Log in as `erin` and approve it.
+Log in as `audrey` and check `/audit`.
 
-| Role | Permissions | Seed users |
-|---|---|---|
-| `support_agent` | `refunds:transaction.view`, `refunds:refund.request` | `dana` |
-| `support_lead` | adds `refunds:refund.approve` | `erin` |
-
-**Screens.**
-
-- `/refunds`: the transactions list.
-- `/refunds/transactions/{id}`: transaction detail, its refund history, and a refund form
-  (amount + reason).
-- `/refunds/approvals`: pending refunds awaiting approval, for users with
-  `refunds:refund.approve`.
-
-**Workflow.**
-
-```
-amount <= $500 ───────────────────────────────► ISSUED (immediately)
-amount >  $500 ──► PENDING_APPROVAL ──(different support lead approves)──► ISSUED
-                                    └─(different support lead rejects)───► REJECTED
-```
-
-- A refund can't exceed the transaction amount minus refunds already issued. This is
-  checked again at approval time, in case another refund was issued in the meantime.
-- Refunds up to the approval threshold are issued immediately. The threshold is
-  `APPROVAL_THRESHOLD = Decimal("500.00")` in `config/refunds.py`, so it can change without
-  touching code.
-- Refunds above the threshold go through `core/approvals` and need a different user with
-  `refunds:refund.approve`. The requester can never approve their own refund.
-- When a refund is issued, the transaction moves to `PARTIALLY_REFUNDED` or `REFUNDED`.
-- Every request and decision requires a reason.
-
-**Audit trail.** `refunds.refund.requested`, `refunds.refund.approved`,
-`refunds.refund.rejected`, `refunds.refund.issued`, and
-`refunds.transaction.status_changed`.
-
-**Try it.** Log in as `dana`, open a transaction, and request a $700 refund (it goes to
-pending approval). Log in as `erin`, approve it from `/refunds/approvals`, and check that
-it is issued. Log in as `audrey` and check `/audit`.
-
-### What the two tools show
-
-- **Same controls, different rules.** KYC uses four-eyes for risky cases (watchlist hits).
-  Refunds uses it above a money threshold. Both call the same `approvals.request` /
-  `approvals.decide`, and neither has any custom auth, permission, or audit code.
-- **No platform changes.** Neither tool needed a change to `core/`.
-- **Self-contained.** Each tool lives in its own `apps/<tool>/` folder (permissions,
-  models with the status rules, routes, templates, seed data, tests). It plugs into the
-  platform by adding roles to `config/roles.py`, mounting its router in `main.py`, and
-  adding its seed to `seed.py`.
+Both tools use the same `core/approvals` for different triggers (a watchlist hit vs. a
+dollar threshold), and neither needed changes to `core/` or any custom auth, permission,
+or audit code.
 
 ## Adding another tool
 
-Write `specs/<tool>.md` (see `specs/kyc.md` and `specs/refunds.md` for the format) and ask
-Devin to build it. The procedure in `.agents/skills/new-internal-tool/SKILL.md` covers file
-layout, naming (`<tool>:<resource>.<action>` permissions, `<tool>_` table prefixes,
-`<tool>.<entity>.<verb>` audit actions), testing, and the required PR sections.
-
-## Known gaps
-
-- The KYC case page shows the SSN without auditing the read. The new-tool skill requires
-  auditing views of sensitive personal data, but `apps/kyc` predates that rule.
-- Denied requests (403) and rejected inputs (400) are not written to the audit log; only
-  logins and successful changes are.
+Write `specs/<tool>.md` (see the existing specs for the format) and build it by following
+`.agents/skills/new-internal-tool/SKILL.md`.
 
 ## Production gaps (out of scope for this PoC)
 
