@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Your tools</h1>
+{% if tools %}
+<ul>
+  {% for tool in tools %}<li><a href="{{ tool.url }}">{{ tool.name }}</a></li>{% endfor %}
+</ul>
+{% else %}
+<p>You do not have access to any tools.</p>
+{% endif %}
+{% endblock %}

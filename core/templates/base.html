@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}Internal Tools{% endblock %}</title>
+  <style>{% include "style.css" %}</style>
+</head>
+<body>
+  <header>
+    <a href="/">Internal Tools</a>
+    {% if user %}
+    <div>
+      Signed in as <strong>{{ user.username }}</strong>
+      <span class="roles">({{ user.role_names | join(", ") or "no roles" }})</span>
+      <form method="post" action="/logout"><button type="submit">Log out</button></form>
+    </div>
+    {% endif %}
+  </header>
+  <main>{% block content %}{% endblock %}</main>
+</body>
+</html>
