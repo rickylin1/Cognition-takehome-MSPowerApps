@@ -9,9 +9,7 @@ See `AGENTS.md` for project rules and `specs/` for task specs.
 
 A Series C fintech (~60 engineers) runs several internal operations tools in Microsoft
 Power Apps today: a KYC review queue, a refunds dashboard, and a feature-flag panel. It
-plans to build 10+ more. The question this repo answers is whether the team can replace
-Power Apps with tools it builds and maintains itself (with Devin) without each tool
-re-implementing, and getting subtly wrong, the controls compliance depends on.
+plans to build 10+ more.
 
 The approach:
 
@@ -27,6 +25,15 @@ and the [refunds dashboard](#refunds-dashboard-appsrefunds). Both were built on 
 unchanged `core/` platform. The refunds dashboard was the second tool and was built by
 following the reusable procedure in `.agents/skills/new-internal-tool/SKILL.md`, which was
 written from the KYC build so later tools follow the same conventions.
+
+The third Power Apps tool, the feature-flag panel, was deliberately not rebuilt:
+
+- **Two tools were enough to prove the point.** The second tool (refunds) reused `core/`
+  without any changes, so a third would add little new evidence.
+- **It tells auditors less.** The feature-flag panel doesn't touch customer PII or move
+  money, so it exercises the controls less than KYC and refunds do.
+- **This is a time-boxed PoC.** The panel is deferred, and it is the natural next tool to
+  build from a spec.
 
 ## How the platform works
 
