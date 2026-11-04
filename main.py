@@ -6,6 +6,7 @@ from fastapi.responses import RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
 
 from apps.kyc.routes import router as kyc_router
+from apps.refunds.routes import router as refunds_router
 from core import approvals, audit  # noqa: F401  (register models)
 from core.auth import NotAuthenticated
 from core.db import init_db
@@ -43,3 +44,4 @@ def forbidden(request: Request, exc: PermissionDenied):
 app.include_router(core_router)
 # Each tool's routes are mounted here.
 app.include_router(kyc_router)
+app.include_router(refunds_router)

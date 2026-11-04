@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Transaction #{{ tx.id }}{% endblock %}
+{% block content %}
+<p><a href="/refunds">&larr; Back to transactions</a>{% if can_approve %} · <a href="/refunds/approvals">Pending approvals</a>{% endif %}</p>
+<h1>Transaction #{{ tx.id }}</h1>
+<table>
+  <tr><th>Customer</th><td>{{ tx.customer_name }}</td></tr>
+  <tr><th>Merchant</th><td>{{ tx.merchant }}</td></tr>
+  <tr><th>Date</th><td>{{ tx.date }}</td></tr>
+  <tr><th>Amount</th><td>{{ tx.amount_cents | usd }}</td></tr>
+  <tr><th>Status</th><td>{{ tx.status }}</td></tr>
+  <tr><th>Refundable</th><td>{{ refundable | usd }}</td></tr>
+</table>
+
+<h2>Refunds</h2>
+<table>
+  <thead><tr><th>Refund</th><th>Amount</th><th>Reason</th><th>Status</th><th>Requested (UTC)</th></tr></thead>
+  <tbody>
+    {% for r in refunds %}
+    <tr>
+      <td>#{{ r.id }}</td>
+      <td>{{ r.amount_cents | usd }}</td>
+      <td>{{ r.reason }}</td>
+      <td>{{ r.status }}</td>
+      <td>{{ r.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5">No refunds.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% if can_request %}
+<h2>Request a refund</h2>
+<p>Refunds up to {{ threshold | usd }} are issued immediately; larger refunds need approval from a different user.</p>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+<form method="post" action="/refunds/transactions/{{ tx.id }}/refunds">
+  <label>Amount (USD)<br><input type="text" name="amount" inputmode="decimal" required></label>
+  <label>Reason (required)<br><textarea name="reason" rows="3" required></textarea></label>
+  <button type="submit">Request refund</button>
+</form>
+{% endif %}
+{% endblock %}
