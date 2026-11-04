@@ -9,9 +9,13 @@ from core import audit
 from core.auth import User, authenticate, get_current_user
 from core.db import get_db
 from core.permissions import AUDIT_VIEW, require_permission
+from core.registry import register_tool, visible_tools
 
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 router = APIRouter()
+
+register_tool("Audit log", "/audit", AUDIT_VIEW)
+
 
 @router.get("/login")
 def login_form(request: Request):
@@ -47,7 +51,9 @@ def logout(request: Request, user: User = Depends(get_current_user)):
 
 @router.get("/")
 def home(request: Request, user: User = Depends(get_current_user)):
-    return templates.TemplateResponse(request, "home.html", {"user": user})
+    return templates.TemplateResponse(
+        request, "home.html", {"user": user, "tools": visible_tools(user)}
+    )
 
 
 @router.get("/audit")
